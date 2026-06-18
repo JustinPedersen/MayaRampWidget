@@ -16,11 +16,10 @@ import maya.OpenMayaUI as omui
 
 import ramp_widget
 
+WINDOW_TITLE = "CurveColourRamper"
 
-WINDOW_TITLE = "RampDemoWindow"
 
-
-def maya_main_window():
+def maya_main_window() -> QtWidgets.QWidget:
     """
     Return the Maya main window widget as a Python object
     """
@@ -32,12 +31,13 @@ def maya_main_window():
 
 
 # noinspection PyAttributeOutsideInit
-class RampDemoWindow(QtWidgets.QDialog):
+class CurveColourRamper(QtWidgets.QDialog):
 
     def __init__(self, parent=maya_main_window()):
-        super(RampDemoWindow, self).__init__(parent)
+        super(CurveColourRamper, self).__init__(parent)
         self.setObjectName(WINDOW_TITLE)
         self.setWindowTitle(WINDOW_TITLE)
+
         if cmds.about(ntOS=True):
             self.setWindowFlags(
                 self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint
@@ -56,8 +56,10 @@ class RampDemoWindow(QtWidgets.QDialog):
         # Force the ui to update with the currently selected marker
         self.set_base_ui_state(self.ramp.current_selected_marker)
 
-    def create_widgets(self):
-
+    def create_widgets(self) -> None:
+        """
+        Create all widgets required for the window
+        """
         # Ramp widget
         self.ramp = ramp_widget.Ramp()
 
@@ -99,7 +101,10 @@ class RampDemoWindow(QtWidgets.QDialog):
         self.g_spin_box.setRange(0, 255)
         self.b_spin_box.setRange(0, 255)
 
-    def create_layout(self):
+    def create_layout(self) -> None:
+        """
+        Create all layouts required for the window and parent widgets to them
+        """
         # Create the root layout
         root_layout = QtWidgets.QVBoxLayout()
         self.setLayout(root_layout)
@@ -146,7 +151,7 @@ class RampDemoWindow(QtWidgets.QDialog):
         root_layout.addWidget(self.value_control_groupbox)
         root_layout.addWidget(self.colour_control_groupbox)
 
-    def create_connections(self):
+    def create_connections(self) -> None:
         """
         Create all the connections needed within the UI
         """
@@ -182,19 +187,19 @@ class RampDemoWindow(QtWidgets.QDialog):
         self.ramp.marker_selected.connect(self.on_marker_selected)
         self.ramp.marker_moved.connect(self.on_marker_moved)
 
-    def set_all_spin_boxes(self, r, g, b):
+    def set_all_spin_boxes(self, r: float, g: float, b: float) -> None:
         """Helper function to set all the spin boxes at once"""
         self.r_spin_box.setValue(r)
         self.g_spin_box.setValue(g)
         self.b_spin_box.setValue(b)
 
-    def set_all_sliders(self, r, g, b):
+    def set_all_sliders(self, r: float, g: float, b: float) -> None:
         """Helper function to set all the sliders at once"""
         self.r_slider.setValue(r)
         self.g_slider.setValue(g)
         self.b_slider.setValue(b)
 
-    def current_hex(self):
+    def current_hex(self) -> str:
         """
         :return: current RBG spin box values and return that as a hex value
         :rtype: str
@@ -207,7 +212,7 @@ class RampDemoWindow(QtWidgets.QDialog):
         return "#{0:02x}{1:02x}{2:02x}".format(r, g, b)
 
     @classmethod
-    def hex_to_rgb(cls, hex_value):
+    def hex_to_rgb(cls, hex_value: str) -> tuple:
         """
         :param hex_value: Given a hex value convert it to an RGB value
         :return: rgb value
@@ -217,7 +222,9 @@ class RampDemoWindow(QtWidgets.QDialog):
         if match:
             return tuple(int(match.group(2)[i : i + 2], 16) for i in (0, 2, 4))
 
-    def update_colour_preview(self, hex_value=None):
+        raise ValueError(f"Could not convert hex value {hex_value} to RGB")
+
+    def update_colour_preview(self, hex_value: str = None) -> None:
         """
         Change the current colour label preview to what the current slider and spin box values are set to.
 
@@ -228,7 +235,9 @@ class RampDemoWindow(QtWidgets.QDialog):
             hex_value = self.current_hex()
         self.colour_preview_label.setStyleSheet(f"background-color: {hex_value}")
 
-    def on_colour_value_changed(self, target, value, update_marker=True):
+    def on_colour_value_changed(
+        self, target: QtWidgets.QWidget, value: float, update_marker: bool = True
+    ) -> None:
         """
         Called when a slider or spin box has its value updated
 
@@ -242,9 +251,9 @@ class RampDemoWindow(QtWidgets.QDialog):
         self.hex_line_edit.setText(current_hex)
 
         if update_marker:
-            self.ramp.edit_current_marker(new_color=current_hex)
+            self.ramp.edit_marker(new_color=current_hex)
 
-    def on_hex_value_set(self, hex_value):
+    def on_hex_value_set(self, hex_value: str) -> None:
         """
         Called when the hex value is edited within the UI. We parse the hex value to see if it is valid
         and if it is, then update the UI with the RGB values pulled from it.
@@ -258,7 +267,7 @@ class RampDemoWindow(QtWidgets.QDialog):
         else:
             print(f"Warning: Invalid hex value given: {hex_value}")
 
-    def on_marker_selected(self, marker):
+    def on_marker_selected(self, marker: ramp_widget.Marker) -> None:
         """
         Called when a marker on the ramp is selected. We need to update the UI to match the newly selected colour
         :param marker:
@@ -271,21 +280,21 @@ class RampDemoWindow(QtWidgets.QDialog):
         # Set the U Value
         self.value_spin.setValue(marker.u_value)
 
-    def on_marker_moved(self, marker):
+    def on_marker_moved(self, marker: ramp_widget.Marker) -> None:
         """
         Called when a marker is moved
         :param marker: The marker that is currently being moved
         """
         self.value_spin.setValue(marker.u_value)
 
-    def on_value_spin_changed(self):
+    def on_value_spin_changed(self) -> None:
         """
         Called when the value spin is updated
         """
         u_value = self.value_spin.value()
-        self.ramp.edit_current_marker(new_u_value=u_value)
+        self.ramp.edit_marker(new_u_value=u_value)
 
-    def set_base_ui_state(self, maker):
+    def set_base_ui_state(self, maker: ramp_widget.Marker) -> None:
         """
         Helper function to set the base pass of the UI
         """
@@ -303,15 +312,11 @@ def main():
     importlib.reload(ramp_widget)
 
     maya_window = maya_main_window()
-
-    existing_window = maya_window.findChild(
-        QtWidgets.QWidget,
-        WINDOW_TITLE
-    )
+    existing_window = maya_window.findChild(QtWidgets.QWidget, WINDOW_TITLE)
 
     if existing_window:
         existing_window.close()
         existing_window.deleteLater()
 
-    window = RampDemoWindow()
+    window = CurveColourRamper()
     window.show()
