@@ -12,3 +12,5 @@ Pyside Ramp Widget that looks and functions just like Autodesk Maya's ramp widge
 
 ## Demo 
 See the `curve_colour_ramper.py` file for an interactive demo the runs within autodesk Maya. 
+
+![Tool Demo](https://github.com/JustinPedersen/MayaRampWidget/blob/main/images/ramp_demo_03.jpg)
