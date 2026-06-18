@@ -1,20 +1,16 @@
+import json
 import re
 import sys
-import importlib
+from functools import partial
 
+import maya.OpenMayaUI as omui
+import maya.cmds as cmds
+
+import ramp_widget
 from qt import QtCore
 from qt import QtGui
 from qt import QtWidgets
 from qt import wrapInstance
-
-
-from functools import partial
-
-import maya.cmds as cmds
-import maya.OpenMayaUI as omui
-
-
-import ramp_widget
 
 WINDOW_TITLE = "CurveColourRamper"
 
@@ -51,7 +47,7 @@ class CurveColourRamper(QtWidgets.QDialog):
         self.create_layout()
         self.create_connections()
 
-        self.resize(400, 400)
+        self.resize(400, 600)
 
         # Force the ui to update with the currently selected marker
         self.set_base_ui_state(self.ramp.current_selected_marker)
@@ -69,6 +65,7 @@ class CurveColourRamper(QtWidgets.QDialog):
         self.value_spin = QtWidgets.QDoubleSpinBox()
         self.value_spin.setRange(0.0, 1.0)
         self.value_spin.setSingleStep(0.01)
+        self.value_spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
 
         # Colour control widgets
         self.colour_control_groupbox = QtWidgets.QGroupBox("Color")
@@ -98,8 +95,19 @@ class CurveColourRamper(QtWidgets.QDialog):
 
         # --- Spin Box Settings
         self.r_spin_box.setRange(0, 255)
+        self.r_spin_box.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.g_spin_box.setRange(0, 255)
+        self.g_spin_box.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
         self.b_spin_box.setRange(0, 255)
+        self.b_spin_box.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+
+        # -- IO Buttons
+        self.io_groupbox = QtWidgets.QGroupBox("Gradient IO")
+        self.export_ramp_button = QtWidgets.QPushButton("Export")
+        self.import_ramp_button = QtWidgets.QPushButton("Import")
+
+        # -- Set Curve Colour Buttons
+        self.set_curve_colour_button = QtWidgets.QPushButton("Set Curves Colour")
 
     def create_layout(self) -> None:
         """
@@ -146,10 +154,18 @@ class CurveColourRamper(QtWidgets.QDialog):
         colour_control_layout.addLayout(g_layout)
         colour_control_layout.addLayout(b_layout)
 
+        # IO Groupbox
+        io_buttons_layout = QtWidgets.QHBoxLayout()
+        self.io_groupbox.setLayout(io_buttons_layout)
+        io_buttons_layout.addWidget(self.import_ramp_button)
+        io_buttons_layout.addWidget(self.export_ramp_button)
+
         # Add everything to the root
         root_layout.addWidget(self.ramp)
         root_layout.addWidget(self.value_control_groupbox)
         root_layout.addWidget(self.colour_control_groupbox)
+        root_layout.addWidget(self.io_groupbox)
+        root_layout.addWidget(self.set_curve_colour_button)
 
     def create_connections(self) -> None:
         """
@@ -187,6 +203,11 @@ class CurveColourRamper(QtWidgets.QDialog):
         self.ramp.marker_selected.connect(self.on_marker_selected)
         self.ramp.marker_moved.connect(self.on_marker_moved)
 
+        # IO
+        self.import_ramp_button.clicked.connect(self.on_import_clicked)
+        self.export_ramp_button.clicked.connect(self.on_export_clicked)
+        self.set_curve_colour_button.clicked.connect(self.on_set_curve_colour)
+
     def set_all_spin_boxes(self, r: float, g: float, b: float) -> None:
         """Helper function to set all the spin boxes at once"""
         self.r_spin_box.setValue(r)
@@ -212,15 +233,17 @@ class CurveColourRamper(QtWidgets.QDialog):
         return "#{0:02x}{1:02x}{2:02x}".format(r, g, b)
 
     @classmethod
-    def hex_to_rgb(cls, hex_value: str) -> tuple:
+    def hex_to_rgb(cls, hex_value: str, normalised: bool = False) -> tuple:
         """
         :param hex_value: Given a hex value convert it to an RGB value
+        :param normalised: If True, returns values in 0.0-1.0 range instead of 0-255
         :return: rgb value
-        :rtype: tuple|None
+        :rtype: tuple
         """
         match = re.search(r"^(#)?(.{6})$", hex_value)
         if match:
-            return tuple(int(match.group(2)[i : i + 2], 16) for i in (0, 2, 4))
+            rgb = tuple(int(match.group(2)[i : i + 2], 16) for i in (0, 2, 4))
+            return tuple(c / 255.0 for c in rgb) if normalised else rgb
 
         raise ValueError(f"Could not convert hex value {hex_value} to RGB")
 
@@ -303,13 +326,66 @@ class CurveColourRamper(QtWidgets.QDialog):
         self.update_colour_preview(hex_value)
         self.hex_line_edit.setText(hex_value)
 
+    def on_import_clicked(self) -> None:
+        """
+        Prompt the user to select a JSON file and return its contents.
+        """
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Import JSON", "", "JSON Files (*.json)"
+        )
+
+        if not file_path:
+            return
+
+        with open(file_path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+
+        # JSON keys are always strings, cast back to float for set_markers
+        self.ramp.set_markers({float(k): v for k, v in data.items()})
+
+    def on_export_clicked(self) -> None:
+        """
+        Prompt the user for a save location and export the data as JSON.
+        """
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export JSON", "", "JSON Files (*.json)"
+        )
+
+        if not file_path:
+            return
+
+        with open(file_path, "w", encoding="utf-8") as handle:
+            json.dump(self.ramp.markers, handle, indent=4)
+
+    def on_set_curve_colour(self) -> None:
+        """
+        Set the colour on the currently selected curves
+        """
+        transforms = sorted([t for t in cmds.ls(sl=True, type="transform")])
+        total_shapes = len(transforms)
+
+        for i, t in enumerate(transforms):
+            shapes = cmds.listRelatives(t, shapes=True)
+
+            u_value = i / (total_shapes - 1) if total_shapes > 1 else 0.0
+            colour = self.hex_to_rgb(
+                self.ramp.color_at_u_value(u_value), normalised=True
+            )
+            for shape in shapes:
+                cmds.setAttr(f"{shape}.overrideEnabled", 1)
+                cmds.setAttr(f"{shape}.overrideRGBColors", 1)
+                cmds.setAttr(
+                    f"{shape}.overrideColorRGB", colour[0], colour[1], colour[2]
+                )
+
+
+1
+
 
 def main():
     """
     To demo the ramp widget within Maya run this function
     """
-    # FIXME: Remove this
-    importlib.reload(ramp_widget)
 
     maya_window = maya_main_window()
     existing_window = maya_window.findChild(QtWidgets.QWidget, WINDOW_TITLE)

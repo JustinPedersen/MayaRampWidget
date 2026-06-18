@@ -1,7 +1,6 @@
-import re
 import math
+import re
 from dataclasses import dataclass
-from typing import Any
 
 from qt import QtCore
 from qt import QtGui
@@ -164,12 +163,12 @@ class Ramp(QtWidgets.QWidget):
     # ---------------------------------------------------------------------- #
 
     @property
-    def markers(self) -> list[dict[float, str]]:
+    def markers(self) -> dict[str, str]:
         """
-        :returns: All markers present on the gradient. Namely, their u value and color
+        :returns: All markers as a flat dict of u_value -> color, sorted by u_value
         """
         self._sort_gradient()
-        return [{m.u_value: m.color} for m in self._gradient]
+        return {str(m.u_value): m.color for m in self._gradient}
 
     @property
     def selected_marker_index(self) -> int:
@@ -463,6 +462,44 @@ class Ramp(QtWidgets.QWidget):
         # Update the Gradient and UI
         self._sort_gradient()
         self.update()
+
+    def set_markers(self, markers: dict[float, str]) -> None:
+        """
+        Replace all existing markers with new ones defined by the given dictionary.
+
+        :param dict markers: A dict of U values to hex color strings e.g. {0.0: "#000000", 1.0: "#ffffff"}
+        :raises ValueError: If the dict is empty, a U value is out of range, or a color is not a valid hex string.
+        """
+        if not markers:
+            raise ValueError("Markers dict must contain at least one entry.")
+
+        for u_value, color in markers.items():
+            if not 0.0 <= u_value <= 1.0:
+                raise ValueError(
+                    f"U value must be between 0.0 and 1.0 - Got: {u_value}"
+                )
+            if not re.search(r"^#(?:[0-9a-fA-F]{3}){1,2}$", color):
+                raise ValueError(
+                    f"Marker color must be a hex value beginning with #. Got: {color}"
+                )
+
+        # Clear existing markers and replace with new ones
+        self._gradient.clear()
+        for u_value, color in markers.items():
+            new_marker = Marker(**self._basic_marker_data)
+            new_marker.u_value = u_value
+            new_marker.color = color
+            self._gradient.append(new_marker)
+
+        self._sort_gradient()
+
+        # Select the first marker by default
+        self._current_marker_selection = self._gradient[0]
+        self._update_marker_selection()
+        self._drag_marker = False
+
+        self.update()
+        self.marker_selected.emit(self._current_marker_selection)
 
     def paintEvent(self, event: QtCore.QEvent) -> None:
         """
