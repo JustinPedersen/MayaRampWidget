@@ -1,9 +1,9 @@
 import re
 import math
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qt import QtCore
+from qt import QtGui
+from qt import QtWidgets
 
 
 class Marker:
@@ -13,7 +13,7 @@ class Marker:
     """
 
     def __init__(self, data=None):
-        self.color = '#000000'
+        self.color = "#000000"
         self.u_value = 0.0
         self.selected = False
         self.position = None
@@ -27,31 +27,30 @@ class Marker:
             self.set_values(data)
 
     @property
-    def outline_color(self):
-        return '#FFFFFF' if self.selected else '#000000'
+    def outline_color(self) -> str:
+        return "#FFFFFF" if self.selected else "#000000"
 
-    def set_values(self, data):
-        self.color = data.get('color', self.color)
-        self.u_value = data.get('u_value', self.u_value)
-        self.selected = data.get('selected', self.selected)
-        self.position = data.get('position', self.position)
-        self.marker_size = data.get('marker_size', self.marker_size)
-        self.marker_margin = data.get('marker_margin', self.marker_margin)
-        self.del_rect_size = data.get('del_rect_size', self.del_rect_size)
-        self.del_rect_position = data.get('del_rect_position', self.del_rect_position)
+    def set_values(self, data: dict) -> None:
+        """
+        Set internal values of the marker
+        """
+        self.color = data.get("color", self.color)
+        self.u_value = data.get("u_value", self.u_value)
+        self.selected = data.get("selected", self.selected)
+        self.position = data.get("position", self.position)
+        self.marker_size = data.get("marker_size", self.marker_size)
+        self.marker_margin = data.get("marker_margin", self.marker_margin)
+        self.del_rect_size = data.get("del_rect_size", self.del_rect_size)
+        self.del_rect_position = data.get("del_rect_position", self.del_rect_position)
 
-    def is_selected(self, point):
+    def is_selected(self, point: QtCore.QPoint) -> bool:
         """
         Given a QPoint decide if the Marker was selected or not using its Position
         """
-
         if self.position:
             # Calculate the distance between the known position and the point position
             distance = abs(
-                math.hypot(
-                    point.x() - self.position.x(),
-                    point.y() - self.position.y()
-                )
+                math.hypot(point.x() - self.position.x(), point.y() - self.position.y())
             )
             # If the distance is smaller than the circle marker then it was selected
             if distance <= (self.marker_size + self.marker_margin):
@@ -59,18 +58,21 @@ class Marker:
 
         return False
 
-    def is_deleted(self, point):
+    def is_deleted(self, point: QtCore.QPoint) -> bool:
         """
         Given a QPoint decide if the Marker was deleted
         """
         if self.del_rect_position:
             x = self.del_rect_position.x() - int(self.del_rect_size / 2)
             y = self.del_rect_position.y() - int(self.del_rect_size / 2)
-            if QtCore.QRect(x, y, self.del_rect_size, self.del_rect_size).contains(point):
+            if QtCore.QRect(x, y, self.del_rect_size, self.del_rect_size).contains(
+                point
+            ):
                 return True
+
         return False
 
-    def set_u_value(self, point, rect_size):
+    def set_u_value(self, point: QtCore.QPoint, rect_size: tuple) -> None:
         """
         Given the start and end points of where the ramp is drawn and the
         point the user has their mouse pointer, work out the relative U value
@@ -78,21 +80,19 @@ class Marker:
         :param rect_size: Tuple describing the x,y, width and height of the gradient rectangle.
         """
 
-        relative_start = QtCore.QPoint(
-            rect_size[0],
-            point.y())
-        relative_end = QtCore.QPoint(
-            rect_size[0] + rect_size[2],
-            point.y())
+        relative_start = QtCore.QPoint(rect_size[0], point.y())
+        relative_end = QtCore.QPoint(rect_size[0] + rect_size[2], point.y())
 
         # Calculate where the point is relative to the start and end positions
-        u_value = (relative_end.x() - point.x()) / (relative_end.x() - relative_start.x())
+        u_value = (relative_end.x() - point.x()) / (
+            relative_end.x() - relative_start.x()
+        )
         u_value = max(min(u_value, 1.0), 0.0)
 
-        # Lastly we flip the value as its calculated with the 1.0 on the left, not sure why just yet
+        # Lastly we flip the value as it's calculated with the 1.0 on the left, not sure why just yet
         self.u_value = 1.0 - u_value
 
-    def get_pos_from_u_value(self, rect_size):
+    def get_pos_from_u_value(self, rect_size: tuple) -> int:
         """
         Get the relative marker position using the rect size and it's U value
         """
@@ -125,30 +125,26 @@ class Ramp(QtWidgets.QWidget):
 
         # Base properties all markers will hold by default
         self._basic_marker_data = {
-            'color': '#000000',
-            'u_value': 0.0,
-            'marker_size': self.circle_marker_size,
-            'marker_margin': self.circle_marker_margin,
-            'del_rect_size': self.del_rect_size,
-            'selected': False
+            "color": "#000000",
+            "u_value": 0.0,
+            "marker_size": self.circle_marker_size,
+            "marker_margin": self.circle_marker_margin,
+            "del_rect_size": self.del_rect_size,
+            "selected": False,
         }
 
         # Data for starter markers
         starting_marker_data = [
-            {'color': '#000000',
-             'u_value': 0.0,
-             'selected': True},
-            {'color': '#ff0000',
-             'u_value': 0.5},
-            {'color': '#ffffff',
-             'u_value': 1.0},
+            {"color": "#000000", "u_value": 0.0, "selected": True},
+            {"color": "#ff0000", "u_value": 0.5},
+            {"color": "#ffffff", "u_value": 1.0},
         ]
 
         # Create the base starter markers
         self._gradient = [
             Marker(self._basic_marker_data),
             Marker(self._basic_marker_data),
-            Marker(self._basic_marker_data)
+            Marker(self._basic_marker_data),
         ]
 
         # Set starter marker special properties
@@ -161,7 +157,7 @@ class Ramp(QtWidgets.QWidget):
 
         self.setSizePolicy(
             QtWidgets.QSizePolicy.MinimumExpanding,
-            QtWidgets.QSizePolicy.MinimumExpanding
+            QtWidgets.QSizePolicy.MinimumExpanding,
         )
 
     # ---------------------------------------------------------------------- #
@@ -169,19 +165,17 @@ class Ramp(QtWidgets.QWidget):
     # ---------------------------------------------------------------------- #
 
     @property
-    def markers(self):
+    def markers(self) -> list[dict[float, str]]:
         """
-        :returns: All markers present on the gradient. Namely their u value and color
-        :rtype: list[{float:str}]
+        :returns: All markers present on the gradient. Namely, their u value and color
         """
         self._sort_gradient()
         return [{m.u_value: m.color} for m in self._gradient]
 
     @property
-    def selected_marker_index(self):
+    def selected_marker_index(self) -> int:
         """
         :returns: the currently selected marker index
-        :rtype: int
         """
         self._sort_gradient()
         return self._gradient.index(self._current_marker_selection)
@@ -293,7 +287,7 @@ class Ramp(QtWidgets.QWidget):
             self.horizontal_spacing,
             self.vertical_spacing,
             max((width - (self.horizontal_spacing * 2)), self.min_gradient_width),
-            max((height - (self.vertical_spacing * 2)), self.min_gradient_height)
+            max((height - (self.vertical_spacing * 2)), self.min_gradient_height),
         )
 
     def _sort_gradient(self):
@@ -315,8 +309,8 @@ class Ramp(QtWidgets.QWidget):
         red = int(sum([int(k[1:3], 16) * v for k, v in d_items]) / tot_weight)
         green = int(sum([int(k[3:5], 16) * v for k, v in d_items]) / tot_weight)
         blue = int(sum([int(k[5:7], 16) * v for k, v in d_items]) / tot_weight)
-        zpad = lambda x: x if len(x) == 2 else '0' + x
-        return f'#{zpad(hex(red)[2:]) + zpad(hex(green)[2:]) + zpad(hex(blue)[2:])}'
+        zpad = lambda x: x if len(x) == 2 else "0" + x
+        return f"#{zpad(hex(red)[2:]) + zpad(hex(green)[2:]) + zpad(hex(blue)[2:])}"
 
     # ---------------------------------------------------------------------- #
     # PUBLIC METHODS
@@ -334,7 +328,7 @@ class Ramp(QtWidgets.QWidget):
 
         # If the value is marked already just return that
         for marker in self._gradient:
-            if value == marker.u_value:
+            if math.isclose(marker.u_value, value, rel_tol=1e-9, abs_tol=1e-9):
                 return marker.color
 
         # If the value is smaller than the smallest U value
@@ -359,7 +353,9 @@ class Ramp(QtWidgets.QWidget):
         r_blend = 1.0 - l_blend
 
         # Blend the colours and return the new hex value
-        return self._combine_hex_values({r_marker.color: l_blend, l_marker.color: r_blend})
+        return self._combine_hex_values(
+            {r_marker.color: l_blend, l_marker.color: r_blend}
+        )
 
     def add_marker(self, u_value, colour):
         """
@@ -397,19 +393,19 @@ class Ramp(QtWidgets.QWidget):
         marker_to_delete = None
 
         # If given an index attempt to delete the marker at that value
-        if index:
+        if index is not None:
             len_gradient = len(self._gradient)
             if len_gradient == 1:
-                raise IndexError('Gradient must have at least one marker')
-            if len_gradient < index - 1:
-                raise IndexError('Index out of gradient range')
+                raise IndexError("Gradient must have at least one marker")
+            if not 0 <= index < len_gradient:
+                raise IndexError("Index out of gradient range")
 
             marker_to_delete = self._gradient[index]
 
-        # If we are given a u_vale then find any marker that has it and delete it
+        # If we are given an u_vale then find any marker that has it and delete it
         if u_value is not None:
             for marker in self._gradient:
-                if marker.u_value == float(u_value):
+                if math.isclose(marker.u_value, u_value, rel_tol=1e-9, abs_tol=1e-9):
                     marker_to_delete = marker
 
         # Delete the marker
@@ -430,24 +426,28 @@ class Ramp(QtWidgets.QWidget):
         # Verify the given index is valid
         len_gradient = len(self._gradient)
         if len_gradient == 1:
-            raise IndexError('Gradient must have at least one marker')
-        if len_gradient < index - 1:
-            raise IndexError('Index out of gradient range')
+            raise IndexError("Gradient must have at least one marker")
+        if not 0 <= index < len_gradient:
+            raise IndexError("Index out of gradient range")
 
         target_marker = self._gradient[index]
 
         # Update the U Value
         if new_u_value is not None:
             if not 0.0 <= new_u_value <= 1.0:
-                raise ValueError(f'U Value cannot be smaller than 0.0 or bigger than 1.0 - Given value: {new_u_value}')
+                raise ValueError(
+                    f"U Value cannot be smaller than 0.0 or bigger than 1.0 - Given value: {new_u_value}"
+                )
 
             target_marker.u_value = new_u_value
 
         # Update the Color
         if new_color:
-            match = re.search(r'^#(?:[0-9a-fA-F]{3}){1,2}$', new_color)
+            match = re.search(r"^#(?:[0-9a-fA-F]{3}){1,2}$", new_color)
             if not match:
-                raise ValueError(f'Marker color must be given as a Hex value beginning with a hash. Got: {new_color}')
+                raise ValueError(
+                    f"Marker color must be given as a Hex value beginning with a hash. Got: {new_color}"
+                )
 
             target_marker.color = new_color
 
@@ -474,10 +474,7 @@ class Ramp(QtWidgets.QWidget):
 
         # Draw the linear horizontal gradient.
         gradient = QtGui.QLinearGradient(
-            rect_size[0],
-            0,
-            rect_size[0] + rect_size[2],
-            0
+            rect_size[0], 0, rect_size[0] + rect_size[2], 0
         )
 
         # Add the colors to the gradient
@@ -510,9 +507,8 @@ class Ramp(QtWidgets.QWidget):
             marker.position = marker_position
 
             painter.drawEllipse(
-                marker_position,
-                self.circle_marker_size,
-                self.circle_marker_size)
+                marker_position, self.circle_marker_size, self.circle_marker_size
+            )
 
             # # Create a box that when clicked will delete the marker
             del_rect = QtCore.QRect(0, 0, self.del_rect_size, self.del_rect_size)

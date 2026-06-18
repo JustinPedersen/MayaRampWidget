@@ -1,9 +1,11 @@
 import re
 import sys
+import importlib
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
-from shiboken2 import wrapInstance
+from qt import QtCore
+from qt import QtGui
+from qt import QtWidgets
+from qt import wrapInstance
 
 
 from functools import partial
@@ -12,7 +14,10 @@ import maya.cmds as cmds
 import maya.OpenMayaUI as omui
 
 
-from ramp_widget import Ramp
+import ramp_widget
+
+
+WINDOW_TITLE = "RampDemoWindow"
 
 
 def maya_main_window():
@@ -28,14 +33,15 @@ def maya_main_window():
 
 # noinspection PyAttributeOutsideInit
 class RampDemoWindow(QtWidgets.QDialog):
-    WINDOW_TITLE = "Ramp Demo"
 
     def __init__(self, parent=maya_main_window()):
         super(RampDemoWindow, self).__init__(parent)
-
-        self.setWindowTitle(self.WINDOW_TITLE)
+        self.setObjectName(WINDOW_TITLE)
+        self.setWindowTitle(WINDOW_TITLE)
         if cmds.about(ntOS=True):
-            self.setWindowFlags(self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint)
+            self.setWindowFlags(
+                self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint
+            )
         elif cmds.about(macOS=True):
             self.setWindowFlags(QtCore.Qt.Tool)
 
@@ -53,25 +59,25 @@ class RampDemoWindow(QtWidgets.QDialog):
     def create_widgets(self):
 
         # Ramp widget
-        self.ramp = Ramp()
+        self.ramp = ramp_widget.Ramp()
 
         # Value control widgets
-        self.value_control_groupbox = QtWidgets.QGroupBox('Value')
-        self.value_label = QtWidgets.QLabel('U Value')
+        self.value_control_groupbox = QtWidgets.QGroupBox("Value")
+        self.value_label = QtWidgets.QLabel("U Value")
         self.value_spin = QtWidgets.QDoubleSpinBox()
         self.value_spin.setRange(0.0, 1.0)
         self.value_spin.setSingleStep(0.01)
 
         # Colour control widgets
-        self.colour_control_groupbox = QtWidgets.QGroupBox('Color')
+        self.colour_control_groupbox = QtWidgets.QGroupBox("Color")
         self.colour_preview_label = QtWidgets.QLabel()
         self.colour_preview_label.setMinimumHeight(30)
         self.hex_line_edit = QtWidgets.QLineEdit()
 
         # -- Labels
-        self.r_label = QtWidgets.QLabel('R')
-        self.g_label = QtWidgets.QLabel('G')
-        self.b_label = QtWidgets.QLabel('B')
+        self.r_label = QtWidgets.QLabel("R")
+        self.g_label = QtWidgets.QLabel("G")
+        self.b_label = QtWidgets.QLabel("B")
 
         # -- Sliders
         self.r_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
@@ -105,7 +111,6 @@ class RampDemoWindow(QtWidgets.QDialog):
         value_control_layout.addLayout(value_h_layout)
         value_h_layout.addWidget(self.value_label)
         value_h_layout.addWidget(self.value_spin)
-
 
         # Colour control box layout
         colour_control_layout = QtWidgets.QVBoxLayout()
@@ -146,14 +151,26 @@ class RampDemoWindow(QtWidgets.QDialog):
         Create all the connections needed within the UI
         """
         # When sliders are updated, update the corresponding spin box
-        self.r_slider.valueChanged.connect(partial(self.on_colour_value_changed, self.r_spin_box))
-        self.g_slider.valueChanged.connect(partial(self.on_colour_value_changed, self.g_spin_box))
-        self.b_slider.valueChanged.connect(partial(self.on_colour_value_changed, self.b_spin_box))
+        self.r_slider.valueChanged.connect(
+            partial(self.on_colour_value_changed, self.r_spin_box)
+        )
+        self.g_slider.valueChanged.connect(
+            partial(self.on_colour_value_changed, self.g_spin_box)
+        )
+        self.b_slider.valueChanged.connect(
+            partial(self.on_colour_value_changed, self.b_spin_box)
+        )
 
         # When spin boxes are updated, update the corresponding slider
-        self.r_spin_box.valueChanged.connect(partial(self.on_colour_value_changed, self.r_slider))
-        self.g_spin_box.valueChanged.connect(partial(self.on_colour_value_changed, self.g_slider))
-        self.b_spin_box.valueChanged.connect(partial(self.on_colour_value_changed, self.b_slider))
+        self.r_spin_box.valueChanged.connect(
+            partial(self.on_colour_value_changed, self.r_slider)
+        )
+        self.g_spin_box.valueChanged.connect(
+            partial(self.on_colour_value_changed, self.g_slider)
+        )
+        self.b_spin_box.valueChanged.connect(
+            partial(self.on_colour_value_changed, self.b_slider)
+        )
 
         # Hex line edit
         self.hex_line_edit.textEdited.connect(self.on_hex_value_set)
@@ -166,13 +183,13 @@ class RampDemoWindow(QtWidgets.QDialog):
         self.ramp.marker_moved.connect(self.on_marker_moved)
 
     def set_all_spin_boxes(self, r, g, b):
-        """ Helper function to set all the spin boxes at once """
+        """Helper function to set all the spin boxes at once"""
         self.r_spin_box.setValue(r)
         self.g_spin_box.setValue(g)
         self.b_spin_box.setValue(b)
 
     def set_all_sliders(self, r, g, b):
-        """ Helper function to set all the sliders at once """
+        """Helper function to set all the sliders at once"""
         self.r_slider.setValue(r)
         self.g_slider.setValue(g)
         self.b_slider.setValue(b)
@@ -182,7 +199,11 @@ class RampDemoWindow(QtWidgets.QDialog):
         :return: current RBG spin box values and return that as a hex value
         :rtype: str
         """
-        r, g, b = self.r_spin_box.value(), self.g_spin_box.value(), self.b_spin_box.value()
+        r, g, b = (
+            self.r_spin_box.value(),
+            self.g_spin_box.value(),
+            self.b_spin_box.value(),
+        )
         return "#{0:02x}{1:02x}{2:02x}".format(r, g, b)
 
     @classmethod
@@ -192,9 +213,9 @@ class RampDemoWindow(QtWidgets.QDialog):
         :return: rgb value
         :rtype: tuple|None
         """
-        match = re.search(r'^(#)?(.{6})$', hex_value)
+        match = re.search(r"^(#)?(.{6})$", hex_value)
         if match:
-            return tuple(int(match.group(2)[i:i + 2], 16) for i in (0, 2, 4))
+            return tuple(int(match.group(2)[i : i + 2], 16) for i in (0, 2, 4))
 
     def update_colour_preview(self, hex_value=None):
         """
@@ -235,7 +256,7 @@ class RampDemoWindow(QtWidgets.QDialog):
         if rgb:
             self.set_all_spin_boxes(*rgb)
         else:
-            print(f'Warning: Invalid hex value given: {hex_value}')
+            print(f"Warning: Invalid hex value given: {hex_value}")
 
     def on_marker_selected(self, marker):
         """
@@ -278,12 +299,19 @@ def main():
     """
     To demo the ramp widget within Maya run this function
     """
-    try:
-        # noinspection PyUnboundLocalVariable
-        ramp_demo_window.close()
-        ramp_demo_window.deleteLater()
-    except:
-        pass
+    # FIXME: Remove this
+    importlib.reload(ramp_widget)
 
-    ramp_demo_window = RampDemoWindow()
-    ramp_demo_window.show()
+    maya_window = maya_main_window()
+
+    existing_window = maya_window.findChild(
+        QtWidgets.QWidget,
+        WINDOW_TITLE
+    )
+
+    if existing_window:
+        existing_window.close()
+        existing_window.deleteLater()
+
+    window = RampDemoWindow()
+    window.show()

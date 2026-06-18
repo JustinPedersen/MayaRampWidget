@@ -12,7 +12,3 @@ Pyside Ramp Widget that looks and functions just like Autodesk Maya's ramp widge
 
 ## Demo 
 See the `demo.py` file for an interactive demo the runs within autodesk Maya. 
-
-
-## NOTE: 
-- Py3 is required. The code can be modified to support py2 if you need but will need to be done on your own. 
